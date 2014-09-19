@@ -1,0 +1,96 @@
+---
+title: "Week 4 Quiz"
+output: html_document
+---
+Q1. Show an appropriate visualization that displays the total number of movies for each decade.
+
+```{r}
+library(ggplot2)
+data(movies)
+genre <- c("Action","Animation", "Comedy", "Drama","Documentary", "Romance", "Short")
+ggplot(data = movies, aes(x=year)) + geom_histogram(color="black",fill="white",binwidth=10)+
+xlab("Year") + ylab("Movies")+ggtitle("Movies by Decade")
+```
+
+Q2. Show the average IMDB user rating for different genres of movies? Has this changed over time?
+
+```{r}
+meanrating <- vector(mode = "numeric", length = 0)
+for ( i in 1:length(genre)) {
+  meanrating[i] <- mean(movies$rating[movies[[genre[i]]]==1])
+}
+
+df <- data.frame(movieGenre = genre, movieRating = meanrating )
+ggplot(data=df, aes(x=movieGenre, y=movieRating )) + 
+    geom_bar(colour="black",fill="white", stat="identity",
+             position=position_dodge(),
+             size=.3,width = 0.5) +
+    xlab("Genre") + ylab("Average Rating") + # Set axis labels
+    ggtitle("Average Rating per Genre") 
+```
+
+Q3. Is there a relationship between length of movie and movie rating?
+
+The following graph shows that there is no relationship between length of movie and movie rating.
+
+```{r}
+m<-movies[movies$length < 500,]
+ggplot(data=m, aes(x=length, y=rating)) +
+geom_point()
+```
+
+Q4. Is there a relationship between length of movie and genre?
+
+The longest movies fall under Action, Romance and Drama category. Note that Short and Animation movies are naturally shorter in length.
+
+```{r}
+meanlength <- vector(mode = "numeric", length = 0)
+for ( i in 1:length(genre)) {
+  meanlength[i] <- mean(movies$length[movies[[genre[i]]]==1])
+}
+df <- data.frame(movieGenre = genre, movieLength = meanlength )
+ggplot(data=df, aes(x=movieGenre, y=movieLength)) + 
+    geom_bar(colour="black",fill="white", stat="identity",
+             position=position_dodge(),
+             size=.3,width = 0.5) +                        # Thinner lines
+    xlab("Genre") + ylab("Average Movie Length (in min)") + # Set axis labels
+    ggtitle("Average Length per Genre") 
+```
+
+Q5. Which other variable best predicts total number of votes that a movie received.
+
+Movies produced in later years receive more votes. This can be attributed to the nature
+of internet-based ratings that did not exist until late 90s.
+
+```{r}
+ggplot(data=movies, aes(x=year, y=votes)) + geom_point(shape=1) + geom_smooth(method=lm)
+```
+
+Number of votes for movies of different lenght shows approximately normal distribution.
+Movies of average length receive more votes vs shorter or longer movies.
+
+```{r}
+m<-movies[movies$length < 500,]
+ggplot(data=m, aes(x=length, y=votes)) + geom_point(shape=1) + geom_smooth(method=lm) 
+```
+
+Action movies receive on average more votes than any other genre
+
+```{r}
+votes <- vector(mode = "numeric", length = 0)
+
+for ( i in 1:length(genre)) {
+  votes[i] <- mean(movies$votes[movies[[genre[i]]]==1])
+}
+df <- data.frame(movieGenre = genre, movieVotes = votes)
+options(scipen=3)
+ggplot(data=df, aes(x=movieGenre, y=movieVotes )) + 
+    geom_bar(colour="black",fill="white", stat="identity",
+             position=position_dodge(),
+             size=.3,width = 0.5) +
+    xlab("Genre") + ylab("Average Votes") + 
+    ggtitle("Average Votes per Genre")
+```
+
+ 
+
