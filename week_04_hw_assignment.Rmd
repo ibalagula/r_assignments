@@ -1,0 +1,134 @@
+
+Week 4 Assignment
+=============================================================
+
+**Team: Prashanth Padebettu, Igor Balagula**
+
+**Assignment Description:**
+Download the Movies dataset from http://had.co.nz/data/movies/. Your job is to look at the data, and answer the question, "Which year were the best popular movies made?" This question as worded allows for various interpretations-make (and document!) your reasonable assumptions about "best" and "popular" and include the R code that you use to support your argument.
+
+
+**Load required packages**
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+**Dats overview**
+
+```{r}
+nrow(movies)
+str(movies)
+```
+
+The dataset contains 58788 rows with 24 variables. To answer this assignment's question we will be using the following variables:
+
+- year - year of movie release
+- rating - average IMDB user rating
+- votes - number of IMDB users who rated this movie
+
+
+**Definitions**
+
+For the purposes of this assignment we propose the following definitions:
+
+*Best movies* - movies with the highest average rating
+
+*Popular movies* - movies with the highest number of votes 
+
+*Best Popular movies* - movies with the highest weighted rating as defined in the Algorithm section
+
+*Year in which best popular movies were made* - a year with the highest number of movies included in the list of Best Popular movies
+
+**Algorithm**
+
+The top (n=1000) films are based on a weighted rating formula referred to in actuarial science as a credibility formula.  This label arises because a statistic is taken to be more credible the greater the number of individual pieces of information; in this case from eligible users who submit ratings. We used the following formula from IMDb which uses it to calculate the weighted rating:
+
+    W = (Rv + Cm) / (v+m) 
+    
+where:
+    W = weighted rating;
+    R = average for the movie as a number from 0 to 10 (mean) = (Rating);
+    v = number of votes for the movie = (votes);
+    m = minimum votes required to be listed in the Top 1000 (in our case 8538);
+    C = the mean vote across the whole report (in our case 6.0)
+
+The W in this formula is equivalent to a Bayesian posterior mean
+
+**Data Exploration**
+
+What is the overall distribution of movie ratings?
+```{r}
+summary(movies$rating)
+sd(movies$rating, na.rm=TRUE)
+ggplot(movies, aes(x=rating))+geom_histogram()
+```
+
+Rating is approximately normally distributed across all movies with mean = 5.933 and standard deviation = 1.553. Therefore the mean is a good representation of the distribution of ratings.  
+
+Let's look at distribution of votes.
+```{r}
+summary(movies$votes)
+sd(movies$votes, na.rm=TRUE)
+ggplot(movies, aes(x=votes))+geom_histogram() 
+```
+
+The distribution of votes is heavily skewed to the right. 
+
+```{r}
+nrow(movies[movies$votes>10000,])
+nrow(movies[movies$votes>25000,])
+```
+
+Only 840 movies have number of votes > 10000 and only 238 movies have number of votes > 25000.
+
+Given this distribution, how can we define our top Popular movies? Let's look at top percentiles of the votes distribution:
+
+```{r}
+quantile(movies$votes, c(.90, .95, .98))
+nrow(movies[movies$votes>quantile(movies$votes, c(.98)),])
+```
+ 
+The 98th percentile seems like a reasonable number for top Popular movies. It includes 1176 top movies by the number of votes. In order to be included into top 2% a movie should have 7436 votes. To make our results more readable let's use 1000 top Popular movies instead of 1176. We need to find the cut-off number of votes for 1000 top Popular movies.
+
+```{r}
+top1000 <- tail(movies[order(movies$votes),], n=1000)
+head(top1000$votes, n=1)
+```
+
+The cut-off number of votes to be included into top 1000 Popular movies is 8538 votes
+
+Now we can calculate weighted rating for each movie:
+
+```{r}
+## the mean vote across the whole data set (rounded to nearest integer)
+c<-6
+## minimum votes required to be included into Top 1000
+v<-8538
+## calculate weighted rating
+m<-mutate(movies,  w_rating = ((rating*votes + v*c) / (votes + v)))
+## group 1000 movies with the highest weighted rating by year
+bp <- m %>% arrange(w_rating) %>% do(tail(., n=1000)) %>% group_by(year) %>% summarise(count = n())
+## Find year with best popular movies
+print (bp$year[bp$count == max(bp$count)])
+print (bp$count[bp$count == max(bp$count)])
+```
+Year 2002 has the highest number of Best Popular movies (56 movies) in the top 1000 popular movies in IMDB.
+
+Let's see if our result holds if we change the number of top Popular movies. We will calculate results for different number of top Popular movies (from 100 to 10000 with an increment of 100)
+
+```{r}
+df <- data.frame(topnum = numeric(0), year = numeric(0),topcount= numeric(0))
+for(i in seq(100,10000,100)) {
+   v<-head(tail(movies[order(movies$votes),], n=i)$votes, n=1)
+   m<-mutate(movies,  w_rating = ((rating*votes + v*c) / (votes + v)))
+   bp <- m %>% arrange(w_rating) %>% do(tail(., n=i)) %>% group_by(year) %>% summarise(count = n())
+   df<-rbind(df,data.frame(topnum = i, year=bp$year[bp$count == max(bp$count)], topcount=bp$count[bp$count == max(bp$count)]))
+}
+p<-ggplot(df, aes(x=topnum, y=topcount, color=factor(year))) + geom_point()+ggtitle("Best Popular Movies")+ylab("Highest number of Best Popular movies")+xlab("Number of top Popular movies")+  scale_colour_discrete(name  ="Year")
+p
+```
+
+The graph shows that Year 2002 holds the highest number of Best Popular movies across most of the values for top Popular movies.
+
