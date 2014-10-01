@@ -1,0 +1,125 @@
+
+Week 4 Project
+=============================================================
+
+***Data Set Description***
+
+Data set file name: World_Bank_Indicators.csv
+Source: http://data.worldbank.org/indicator
+
+This data set contains 3 indicators from the World Bank on Mortality Rates and Economic factors for every country in the world between 2000 and 2010. 
+
+A complimentary dataset provide categorization of every country by region and subregion.
+
+***Data Structure***
+
+**Dataset: World_Bank_Indicators.csv***
+
+One instance per line with comma delimited fields.
+
+No. of Observations: 2354
+
+No. of Variables: 5
+
+**Variable name::          Description::	                           Data type**
+
+Country.Name::	        Country Name::	                           Char
+
+Date:: Effective date of indicator:: Date
+
+H.Mortality.U5::	        Mortality under 5 yo per 1000 ppl::	      Number
+
+H.Exp.PerCapita ::       Health expenditures per capita::	         Number
+
+F.GDP.PerCapita::	GDP per capita in USD::	Number
+
+**Dataset: regions.csv**
+
+One instance per line with comma delimited fields.
+
+No. of Observations: 234
+
+No. of Variables: 3
+
+**Variable name::   Description	Data type::	Valid values**
+
+Region::	Region name::	Char	
+
+Subregion::	Subregion name::	Char	
+
+Country::	Country name:: 	Char	
+
+
+***Data Analysis***
+
+
+**Data Cleanup**
+
+1. First data load loaded only 512 record. Upon research it was found that a comma in the country name Cote d'Ivoire must be escaped before complete data set can be loaded
+
+2. When all rows were loaded into a data frame it was found that most of the numeric fields were converted to factors. This happened because numbers were formatted with a comma separator as follows: 8,996,544. After removing commas all numbers loaded correctly as integers.
+
+
+**Load required packages**
+
+```{r}
+library(ggplot2)
+```
+
+**Load data**
+
+```{r}
+setwd("C:/Igor/CUNY/607_Data_Acq_Mgmt_R/Week_05/project")
+ind <- read.table(file = "world_bank_1.csv", header = TRUE, sep = ",")
+reg <- read.table(file = "regions.csv", header = TRUE, sep = ",")
+str(ind)
+str(reg)
+```
+
+Join two datasets in order to be able to analyze data by region and subregion
+
+```{r}
+wbi<-merge(x=ind,y=reg,by.x=c("Country.Name"),by.y=c("Country"))
+```
+
+Summary of all columns in the data set:
+
+```{r}
+summary(wbi)
+```
+
+Summary shows that all fields are within acceptable ranges with no apparent outliers
+
+We will analyze latest data for 2010. Let's see if our data proove a common believe that countries with higher Health Expenditures and higher GDP Per Capita have lower Children Mortality Rate.
+
+```{r}
+wbi$Date2 <- as.character(wbi$Date)
+wbi2010<-wbi[wbi$Date2==("7/1/2010"),]
+options(scipen=5)
+qplot(H.Mortality.U5, H.Exp.PerCapita, data = wbi2010,xlab="Health Expenditures Per Capita", ylab="Children Under 5 Mortality Rate", main="Health Expenditures vs Mortality Rate")
+qplot(H.Mortality.U5, F.GDP.PerCapita, data = wbi2010,xlab="GDP Per Capita", ylab="Children Under 5 Mortality Rate", main="GDP vs Mortality Rate")
+```
+
+The relationship on the plots looks exponential, so we would like to transform the variables and plot logs of variables.
+
+```{r}
+qplot(H.Mortality.U5, H.Exp.PerCapita, data = wbi2010, log="xy", xlab="Health Expenditures Per Capita (log)", ylab="Children Under 5 Mortality Rate(log)", main="Health Expenditures vs Mortality Rate")
+qplot(H.Mortality.U5, F.GDP.PerCapita, data = wbi2010, log="xy",xlab="GDP Per Capita(log)", ylab="Children Under 5 Mortality Rate(log)", main="GDP vs Mortality Rate")
+lm1 <- lm(log(H.Mortality.U5) ~ log(H.Exp.PerCapita),data = wbi2010)
+summary(lm1)
+```
+
+The relationship now looks linear and confirms that countries with higher Health Expenditures and higher GDP Per Capita have lower mortality rate.
+
+Let's look at trends in Child Mortality Rate between 2000 and 2010 by Region
+
+```{r}
+wbi_g<-aggregate(H.Mortality.U5 ~ Region + Date, wbi,sum)
+wbi_g$Date2 <- as.character(wbi_g$Date) 
+p <- ggplot(wbi_g, aes(Date, H.Mortality.U5, group = Region,  colour = factor(Region))) +
+geom_line()+xlab("Year")+ylab("Children Under 5 Mortality Rate")+
+ggtitle("Trend in Children Under 5 Mortality Rate")+scale_colour_discrete(name  ="Region")
+p
+```
+
+The graph shows that the most significant decrease in Child Mortality Rate between 2000 and 2010 happened in Africa.
